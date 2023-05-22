@@ -1,0 +1,271 @@
+---
+title: 'ETC1010-5510: Introduction to Data Analysis'
+author: "Kavish Kapoor"
+date: "Assignment 2"
+output:
+  html_document:
+    toc: yes
+
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  eval = FALSE,
+  message = FALSE,  # Change this to FALSE before you submit your assignment
+  warning = FALSE,  # Change this to FALSE before you submit your assignment
+  error = FALSE,    # Change this to FALSE before you submit your assignment
+  out.width = "70%",
+  fig.width = 8, 
+  fig.height = 6,
+  fig.retina = 3)
+set.seed(6)
+```
+
+```{r libraries, echo = FALSE}
+# Libraries required for the analysis (you can add more if you want to)
+library(tidyverse)
+library(readr)
+library(lubridate)
+library(tsibble)
+library(colorspace) 
+library(ggrepel) 
+library(kableExtra)
+library(ggResidpanel)
+library(rpart)
+library(rpart.plot)
+library(visdat)
+library(plotly)
+library(ggResidpanel)
+library(ggplot2)
+```
+
+
+In this assignment, we are going to study test scores from the The Programme for International Student Assessment (PISA) scheme, which tests 15-year-old students across all states in Australia. 
+You can find the data sets and a code book for the assignment in the *Data* folder. Broadly speaking, PISA measures scholastic ability across three categories: science, reading and math. 
+
+The goal of this analysis is to understand if differences exist between PISA testing scores across various dimensions, such as income, school type, extra-curricular activities and gender. 
+
+
+**Please ensure that the report knits properly into html and all the R code and R outputs are visible in the final knitted report.** **You will need to save your rendered html document into a pdf file (you can use your internet browser to print your html file into a pdf file) and upload that pdf file into Moodle for submission.**
+
+**This is an individual assignment and you must use R code to answer all the questions. Make sure that you have your messages and warnings turned off before you submit the assessment (see lines 15-17 of this Rmd file) and echo = FALSE set for the R code chunk where you load your libraries.**
+
+
+
+
+## Question 1: Read in the pisa data set (1pt) and show the first 4 rows the data frame (1pt).
+
+```{r}
+
+ pisa <- read.csv("data/pisa_au.csv") # reading the data
+
+head(pisa,4)  # displaying first 4 rows
+
+```
+
+
+## Question 2: Calculate the average `math`, `science` and `read` score across states. (2pts) Create a table where you display the top 3 states that have highest average in `math`. (2pts)
+
+```{r}
+mean_scores <- pisa %>%
+  group_by(state) %>%   #1pt
+  summarise(mean_math = mean(math, na.rm =
+TRUE),mean_science = mean(science, na.rm = TRUE),mean_read = mean(read, na.rm = TRUE))  # 1pt
+
+```
+
+```{r}
+mean_scores %>%
+  arrange(-mean_math) %>%  #1pt
+  head(3)   #1pt
+``` 
+
+## Question 3: For female students born in 1999, which type of school had the highest average performce in `math`, `science` and `read` (2pts). And for students born in 2000? (1pt)
+
+
+```{r}
+ top_marks <- pisa %>%
+  group_by(schtype) %>% 
+  dplyr:: filter(gender== "female", birthyr == 1999) %>% 
+  summarise (mean_math = mean (math, na.rm = TRUE) ,
+             mean_science = mean (science, na.rm = TRUE) , mean_read = mean (read, na.rm =
+TRUE)) %>%
+  arrange (-mean_math, mean_science, -mean_read)
+
+top_marks
+```
+
+
+
+
+```{r}
+top_marks <- pisa %>%
+  group_by(schtype) %>% 
+  dplyr:: filter(gender== "female", birthyr == 2000) %>% 
+  summarise (mean_math = mean (math, na.rm = TRUE) ,
+             mean_science = mean (science, na.rm = TRUE) , mean_read = mean (read, na.rm =
+TRUE)) %>%
+  arrange (-mean_math, mean_science, -mean_read)
+
+top_marks
+```
+
+
+
+## Question 4: For the states of VIC, NSW, and QLD, using `geom_density` plot the distribution of marks in `read` by gender using a faceted plot to capture school type (2pt). Which combination of states/schools do female students perform worst in? (2pt). 
+
+```{r}
+read_state <- pisa %>%
+filter (state %in% c("VIC", "NSW", "QLD"))
+
+ggplot(read_state, aes ( x = read, fill = gender))+
+  geom_density() +
+  facet_grid (schtype~state)
+
+```
+As clearly visible in above graph that females perform the worst in government schools.
+
+## Question 5: First, create a data frame called _pisa_filtered_ that excludes observations with missing values **among any variable** (2pt). Then, calculate a new variable called _tot_score_ that is the sum of the math/science/reading scores and add this to the data frame _pisa_filtered_ (1pt); in addition, calculate a new variable _tot_time_ as the sum of the math_time/read_time/science_time and add this new variable to the data frame _pisa_filtered_ (1pt). Using a `geom_point()` describe the relationship between _tot_time_ (x-axis) and _tot_score_ (y-axis). (2pts) 
+
+
+```{r}
+pisa_filtered <- drop_na(pisa) #(2pt)
+
+
+pisa_filtered<-pisa_filtered %>%
+  dplyr::mutate(tot_score = math+science+read) %>%   #1pt
+  dplyr::mutate(tot_time = math_time+science_time+read_time)   #1pt
+
+pisa_filtered %>%  ggplot(aes(y=tot_score,x=tot_time))+geom_point(col="red") #(2pt)
+
+  
+```
+
+
+## Question 6. Let us try and understand the importance of extracurricular activities on marks. Which category of `music_instr` has the highest median score in reading, math, and science. Present your results as a table.(2pt) Looking at the table, what can you conclude about the usefullness of musical instruments on test scores? (1pt). 
+
+```{r}
+library(dplyr)
+
+music_instr_median <- pisa %>%
+  group_by(music_instr) %>%
+  summarise(median_read = median(read, na.rm = TRUE),
+            median_math = median(math, na.rm = TRUE),
+            median_science = median(science, na.rm = TRUE)) %>%
+  arrange(desc(median_read), desc(median_math), desc(median_science))
+
+music_instr_median
+
+```
+We can conclude by Looking at the table, it appears that category 4 has the highest median scores in reading, math, and science and 1 being the lowest. Also,  factors such as the number of students in each category, the level of proficiency in playing the instruments, and individual student characteristics can all influence the relationship between musical instrument participation and academic performance.
+
+## Question 7: Describe the relationship between median scores and music instruments (1pt)? Is the effect the same for both genders? (2pt) 
+
+```{r}
+music_instr_gender <- pisa %>%
+  group_by(music_instr, gender) %>%
+  summarise(median_read = median(read, na.rm = TRUE),
+            median_math = median(math, na.rm = TRUE),
+            median_science = median(science, na.rm = TRUE)) %>%
+  arrange(music_instr, gender)
+
+music_instr_gender
+```
+
+## Question 8. Your analysis has so far yielded several variables that may influence test scores, such as _gender_, _music_instr_, and what type of school the student is from, _schtype_. However, there are many other variables that we may have missed. As a first step in understanding these variables, we can cluster the data to try and see if any patterns emerge beyond those already seen. Use k-means clustering on the following variables with $k=5$ clusters: _gender_, _music_instr_, _internet_use_, _sport_, _belong_, _anxtest_, _motivat_, _wealth_, _read_, _tot_time_, and _tot_score_.(3pt) Report the number of elements in each cluster.(2pt)  **Hint: You will need to create a categorical variable for gender. This can be done using `mutate` and `ifelse`.**
+
+```{r}
+
+df_new<- pisa_filtered %>%
+  mutate(num_gender = ifelse(gender == "female", 1, 0)) %>%
+  select(num_gender,music_instr,internet_use,sport,belong,anxtest,motivat,wealth, internet_use, read,tot_time, tot_score) #(1pt)
+
+m<- dist(df_new) #(1pt)
+
+# Solution for $k=5$
+kmeans_basic <- kmeans(df_new, centers = 5)
+kmeans_basic_df <- data.frame(Clusters = kmeans_basic$cluster, df_new) #(1pt)
+
+#Number in each Cluster
+kmeans_basic_df %>%
+  group_by(Clusters)%>%
+  count() #(2pt)
+
+
+```
+Cluster 1 has the highest tot_score of 2136, suggesting that the students assigned to this cluster tend to have the highest overall performance or achievement levels. Cluster 4 has the lowest tot_score of 380, indicating that the students in this cluster tend to have the lowest overall performance. Clusters 3 and 5 fall in between these extremes, with tot_scores of 1386 and 1783, respectively. Cluster 2 has the second-lowest tot_score of 906.
+
+## Question 9. Report the cluster centers for each variable in a table (2pts). What is the relationship between the clusters and _tot_score_? (2pts)  
+
+
+
+```{r}
+cluster_centers <- aggregate(df_new, by = list(Clusters = kmeans_basic_df$Clusters), FUN = mean)
+cluster_centers <- cluster_centers[, -1]
+
+
+print(cluster_centers)
+
+
+mean_tot_score <- kmeans_basic_df %>%
+  group_by(Clusters) %>%
+  summarize(mean_tot_score = mean(tot_score))
+
+
+print(mean_tot_score)
+```
+
+
+Cluster 4, with the highest average tot_score of 1898.407, appears to have the highest overall performance, while Cluster 1, with the lowest average tot_score of 1127.816, seems to have the lowest overall performance. Clusters 2, 3, and 5 fall between these extremes.
+
+## Question 10. To understand the clusters, produce a table that displays the median value of each variable in the cluster, and arrange the values from largest to smallest by _tot_score_ (2pt). Describe the relationship between the clusters and the variables _tot_score_, _anxtest_, _motivat_; i.e., what do you notice about the similarity between these variables and the assigned cluster? (3pt) 
+
+```{r}
+kmeans_basic_df %>%
+ 
+pivot_longer(cols = num_gender, names_to = "Category", values_to = "Value") %>%
+ 
+
+ ggplot(aes(x = Clusters, y = Value)) +
+ 
+
+ geom_bar(stat = "identity", fill = "aquamarine") +
+  
+
+labs(x = "Clusters", y = "Median Value", title = "Median Value of 'num_gender' by Clusters") +
+  
+
+theme_minimal()
+```
+
+
+## Question 11. Plot the relationship between `tot_scores` across different genders using density plots (geom_density), and facet the plot by cluster. (3pt). Is there a meaningful difference between the scores, by gender, across the different clusters? (1pt). What do you think this finding says about the importance of gender in clustering test scores, and therefore about the ability of gender to determine differences in overall test scores? (2pt)
+
+```{r}
+
+kmeans_basic_df %>%
+  ggplot (aes (x = tot_score, fill = factor(num_gender))) +
+  geom_density (alpha = 0.5) +
+facet_wrap(~ Clusters, ncol = 2) +
+labs (x = "Total Score", y = "Density", fill = "Gender") +
+theme_minimal()
+
+```
+
+##  Question 12 (ETC5510): Do the findings described in question 11 remain true if we instead analyse the relationship between _read_ and cluster assignment based on gender? (5pt)
+
+```{r}
+kmeans_basic_df %>%
+  ggplot (aes (x = read, fill = factor(num_gender))) +
+  geom_density (alpha = 0.5) +
+facet_wrap(~ Clusters, ncol = 2) +
+labs (x = "Total Score", y = "Density", fill = "Gender") +
+theme_minimal()
+```
+
+The density plot, which graphically shows that the density of reading scores for females is higher than that of boys, supports this finding.
+
+The higher density of reading scores for girls suggests that a larger percentage of female pupils outperformed their male counterparts in reading. The greater concentration of scores at the higher end of the distribution, which is consistent with this result, implies that females have a relative advantage in reading abilities.
+
+The stability of this pattern—where females constantly have higher reading scores—across the analysis supports the idea that females typically outperform males in the area of reading. These results are consistent with earlier research that frequently emphasises how much better female readers are.
